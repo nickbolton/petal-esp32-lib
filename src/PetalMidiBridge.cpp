@@ -1,0 +1,213 @@
+#include "PetalMidiBridge.h"
+#include "PetalSendEvents.h"
+#include "utils.h"
+
+PetalMidiBridge *current = nullptr;
+
+#define MANUFACTURER_ID 0x55
+
+PetalMidiBridge::PetalMidiBridge() {
+  setUp();
+  current = this;
+  program = nullptr;
+  sendSysExMessageHandler = nullptr;
+  // PetalSendEvents::setHandleSongProgramRequestHandler(onSongProgramRequestHandler);
+}
+
+PetalMidiBridge::~PetalMidiBridge() {
+  if (program) {
+    delete program;
+    program = nullptr;
+  }
+  current = nullptr;
+}
+
+void PetalMidiBridge::onSongProgramRequestHandler(PetalMessageAction action) {
+  sendPetalRequest(action);
+  if (!current || !current->program) { return; }
+  switch (action) {
+    case PLAY:
+      current->program->handleMessage(PetalMessage(REQUEST, action));
+    default:
+    break;
+  }
+}
+
+void PetalMidiBridge::setUp() {
+  PETAL_LOGI("Setting up petal bridge…");
+}
+
+void PetalMidiBridge::process() {
+  if (program) {
+    program->process();
+  }
+}
+
+void PetalMidiBridge::setSendSysExMessageHandler(void (*fptr)(byte * message, unsigned length)) {
+  sendSysExMessageHandler = fptr;
+}
+
+void PetalMidiBridge::receiveSysExMessage(byte * data, unsigned length) {
+  if (!isConnected()) {
+    return;
+  }
+  // F0 + manufacturer ID
+  if (length < 4) {
+    return;
+  }
+  if (data[0] != 0xF0 || data[1] != 0x0 || data[2] != 0x0 || data[3] != MANUFACTURER_ID || data[length-1] != 0xF7) {
+    return;
+  }
+  logSysExMessage("RX SYSEX", data, length);
+
+  unsigned int prefixLength = 4;
+  byte *messageBytes = data + prefixLength; // leave off sysex prefix
+  unsigned int messageLength = length - 5; // leave off sysex suffix
+
+  logBuffer("MSG", messageBytes, messageLength);
+
+  if (current) {
+    PetalProgramError programError = current->parseMessage(messageBytes, messageLength);
+
+    // send response message
+    // reuse the original message payload
+    messageBytes[16] = RESPONSE;
+    messageBytes[18] = programError;
+    unsigned int responseLength = 0;
+    logBuffer("RESP", messageBytes, 19);
+    encode7BitEncodedPayload(messageBytes, 19, &responseLength);
+    sendSysExMessage(messageBytes, responseLength);
+  }
+}
+
+bool PetalMidiBridge::isConnected() {
+  if (!isConnectedHandler) { return false; }
+  return isConnectedHandler();
+}
+  
+void PetalMidiBridge::setIsConnectedHandler(bool (*fptr)()) {
+  isConnectedHandler = fptr;
+}
+
+void PetalMidiBridge::sendSysExMessage(const byte* payload, unsigned payloadLength) {
+  if (!isConnected() || !payload) { return; }
+  byte manufacturerID[] = { 0x0, 0x0, MANUFACTURER_ID }; 
+
+  unsigned int manufacturerLength = sizeof(manufacturerID);
+  byte message[manufacturerLength + payloadLength];
+  memcpy(message, manufacturerID, manufacturerLength); 
+  memcpy(message + manufacturerLength, payload, payloadLength);
+  logSysExMessage("TX", message, sizeof(message));
+  sendSysExMessageHandler(message, sizeof(message));
+}
+
+void PetalMidiBridge::onEventFired(float * beat) {
+  if (!current) { return; }
+  byte *beatBytes = (byte *)beat;
+  unsigned int encodedLength = sevenBitEncodingPayloadOffset(22);
+  byte payload[encodedLength] = {
+    // uuid
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    // type
+    NOTIFICATION,
+    // action
+    EVENT_FIRED,
+    // beat
+    beatBytes[0],  beatBytes[1],  beatBytes[2],  beatBytes[3], 
+  };
+
+  unsigned int responseLength = 0;
+  encode7BitEncodedPayload(payload, 22, &responseLength);
+  current->sendSysExMessage(payload, responseLength);
+}
+
+void PetalMidiBridge::sendPetalRequest(PetalMessageAction action) {
+  if (!current) { return; }
+  unsigned int encodedLength = sevenBitEncodingPayloadOffset(18);
+  byte payload[encodedLength] = {
+    // uuid
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    // type
+    REQUEST,
+    // action
+    action,
+  };
+  unsigned int responseLength = 0;
+  encode7BitEncodedPayload(payload, 18, &responseLength);
+  current->sendSysExMessage(payload, responseLength);
+}
+
+void PetalMidiBridge::logSysExMessageSummary(String label, const byte* data, unsigned length) {
+  PETAL_LOGI("%s: (%d bytes)", label, length);
+}
+
+void PetalMidiBridge::logSysExMessage(String label, const byte* data, unsigned length) {
+#if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
+  if (length <= MIDISettings::SysExMaxSize) {
+    logBuffer(label, data, length);
+  } else {
+    logSysExMessageSummary(label, data, length);
+  }
+#else 
+  logSysExMessageSummary(label, data, length);
+#endif
+}
+
+PetalProgramError PetalMidiBridge::handleProgramRequest(PetalMessage message) {
+  program = new PetalSongProgram(message.payload, message.payloadLength);
+  program->setEventHandler(onEventFired);
+  return program->getErrorStatus();
+}
+
+PetalProgramError PetalMidiBridge::handleProgramMessage(PetalMessage message) {
+  if (program) {
+    // we have an program established and need to process a message
+    program->handleMessage(message);
+    PetalProgramError programError = program->getErrorStatus();
+    if (message.action == UNLOAD) {
+      if (program) {
+        delete program;
+        program = NULL;
+      }
+    }
+    return programError;
+  } else {
+    return NO_PROGRAM;
+  }
+}
+
+PetalProgramError PetalMidiBridge::parseMessage(byte * bytes, unsigned int length) {
+  if (!bytes || length < 18) { 
+    PETAL_LOGD("PMB : dropping empty message…");
+    return INVALID_PAYLOAD_HEADER; 
+  }
+
+  unsigned int payloadLength = 0;
+
+  // bytes is decoded in place
+  logBuffer("RAW MSG", bytes, length);
+  decode7BitEncodedPayload(bytes, length, &payloadLength);
+
+  PetalProgramError programError = VALID_REQUEST;
+  PetalMessageType type = (PetalMessageType)bytes[16]; // first 16 bytes is the uuid
+  PetalMessageAction action = (PetalMessageAction)bytes[17];
+
+  if (type != REQUEST) {
+    return NO_REQUEST;
+  }
+
+  // the message payload has the uuid, type, and action truncated from the start
+  byte * payload = bytes + 18;
+  payloadLength = length - 18;
+
+  logBuffer("MSG PAYLOAD", payload, payloadLength);
+
+  PetalMessage message = PetalMessage(type, action, payload, payloadLength);
+  switch (action) {
+    case PROGRAM:
+    case SEND_EVENTS:
+      return handleProgramRequest(message);
+    default:
+      return handleProgramMessage(message);
+  }
+}
