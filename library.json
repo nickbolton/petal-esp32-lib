@@ -1,0 +1,27 @@
+{
+  "name": "Petal-esp32-lib",
+  "version": "1.0.0",
+  "description": "Petal esp32 device library.",
+  "keywords": "petal, midi, controller, guitar, base, effects",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/nickbolton/petal-esp32-lib"
+  },
+  "authors":
+  [
+    {
+      "name": "Nick Bolton",
+      "email": "nick@tubebreakup.com",
+      "url": ""
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "homepage": "",
+  "dependencies": {
+  },
+  "frameworks": "*",
+  "platforms": "*"
+}
+
