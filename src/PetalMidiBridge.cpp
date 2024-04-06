@@ -1,17 +1,13 @@
 #include "PetalMidiBridge.h"
-#include "PetalSendEvents.h"
 #include "utils.h"
 
-PetalMidiBridge *current = nullptr;
+byte incomingMidiChannel = 16;
+const byte songProgramRequestNumber = 101;
 
-#define MANUFACTURER_ID 0x55
-
-PetalMidiBridge::PetalMidiBridge() {
-  setUp();
-  current = this;
-  program = nullptr;
-  sendSysExMessageHandler = nullptr;
-  // PetalSendEvents::setHandleSongProgramRequestHandler(onSongProgramRequestHandler);
+PetalMidiBridge::PetalMidiBridge(PetalInteroperability *interopIn) {
+  setup();
+  interop = interopIn;
+  eventHandler = new PetalEventHandler(interop);
 }
 
 PetalMidiBridge::~PetalMidiBridge() {
@@ -19,32 +15,43 @@ PetalMidiBridge::~PetalMidiBridge() {
     delete program;
     program = nullptr;
   }
-  current = nullptr;
+  if (eventHandler) {
+    delete eventHandler;
+  }
+  eventHandler = nullptr;
 }
 
-void PetalMidiBridge::onSongProgramRequestHandler(PetalMessageAction action) {
+void PetalMidiBridge::handleSongProgramRequest(PetalMessageAction action) {
   sendPetalRequest(action);
-  if (!current || !current->program) { return; }
+  if (!program) { return; }
   switch (action) {
     case PLAY:
-      current->program->handleMessage(PetalMessage(REQUEST, action));
+      program->handleMessage(PetalMessage(REQUEST, action));
     default:
     break;
   }
 }
 
-void PetalMidiBridge::setUp() {
+void PetalMidiBridge::setup() {
   PETAL_LOGI("Setting up petal bridge…");
 }
 
 void PetalMidiBridge::process() {
+  PETAL_LOGI("loop!!");
   if (program) {
     program->process();
   }
 }
 
-void PetalMidiBridge::setSendSysExMessageHandler(void (*fptr)(byte * message, unsigned length)) {
-  sendSysExMessageHandler = fptr;
+void PetalMidiBridge::receiveControlChange(byte channel, byte number, byte value) {
+  if (channel != incomingMidiChannel) { return; }
+  switch (number) {
+    case songProgramRequestNumber:
+      handleSongProgramRequest((PetalMessageAction)value);
+    break;
+    default:
+    break;
+  }
 }
 
 void PetalMidiBridge::receiveSysExMessage(byte * data, unsigned length) {
@@ -66,63 +73,26 @@ void PetalMidiBridge::receiveSysExMessage(byte * data, unsigned length) {
 
   logBuffer("MSG", messageBytes, messageLength);
 
-  if (current) {
-    PetalProgramError programError = current->parseMessage(messageBytes, messageLength);
+  PetalProgramError programError = parseMessage(messageBytes, messageLength);
 
-    // send response message
-    // reuse the original message payload
-    messageBytes[16] = RESPONSE;
-    messageBytes[18] = programError;
-    unsigned int responseLength = 0;
-    logBuffer("RESP", messageBytes, 19);
-    encode7BitEncodedPayload(messageBytes, 19, &responseLength);
-    sendSysExMessage(messageBytes, responseLength);
+  // send response message
+  // reuse the original message payload
+  messageBytes[16] = RESPONSE;
+  messageBytes[18] = programError;
+  unsigned int responseLength = 0;
+  logBuffer("RESP", messageBytes, 19);
+  encode7BitEncodedPayload(messageBytes, 19, &responseLength);
+  if (eventHandler) {
+    eventHandler->sendSysExMessage(messageBytes, responseLength);
   }
 }
 
 bool PetalMidiBridge::isConnected() {
-  if (!isConnectedHandler) { return false; }
-  return isConnectedHandler();
+  if (!interop) { return false; }
+  return interop->isConnected();
 }
   
-void PetalMidiBridge::setIsConnectedHandler(bool (*fptr)()) {
-  isConnectedHandler = fptr;
-}
-
-void PetalMidiBridge::sendSysExMessage(const byte* payload, unsigned payloadLength) {
-  if (!isConnected() || !payload) { return; }
-  byte manufacturerID[] = { 0x0, 0x0, MANUFACTURER_ID }; 
-
-  unsigned int manufacturerLength = sizeof(manufacturerID);
-  byte message[manufacturerLength + payloadLength];
-  memcpy(message, manufacturerID, manufacturerLength); 
-  memcpy(message + manufacturerLength, payload, payloadLength);
-  logSysExMessage("TX", message, sizeof(message));
-  sendSysExMessageHandler(message, sizeof(message));
-}
-
-void PetalMidiBridge::onEventFired(float * beat) {
-  if (!current) { return; }
-  byte *beatBytes = (byte *)beat;
-  unsigned int encodedLength = sevenBitEncodingPayloadOffset(22);
-  byte payload[encodedLength] = {
-    // uuid
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-    // type
-    NOTIFICATION,
-    // action
-    EVENT_FIRED,
-    // beat
-    beatBytes[0],  beatBytes[1],  beatBytes[2],  beatBytes[3], 
-  };
-
-  unsigned int responseLength = 0;
-  encode7BitEncodedPayload(payload, 22, &responseLength);
-  current->sendSysExMessage(payload, responseLength);
-}
-
 void PetalMidiBridge::sendPetalRequest(PetalMessageAction action) {
-  if (!current) { return; }
   unsigned int encodedLength = sevenBitEncodingPayloadOffset(18);
   byte payload[encodedLength] = {
     // uuid
@@ -134,28 +104,13 @@ void PetalMidiBridge::sendPetalRequest(PetalMessageAction action) {
   };
   unsigned int responseLength = 0;
   encode7BitEncodedPayload(payload, 18, &responseLength);
-  current->sendSysExMessage(payload, responseLength);
-}
-
-void PetalMidiBridge::logSysExMessageSummary(String label, const byte* data, unsigned length) {
-  PETAL_LOGI("%s: (%d bytes)", label, length);
-}
-
-void PetalMidiBridge::logSysExMessage(String label, const byte* data, unsigned length) {
-#if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
-  if (length <= MIDISettings::SysExMaxSize) {
-    logBuffer(label, data, length);
-  } else {
-    logSysExMessageSummary(label, data, length);
+  if (eventHandler) {
+    eventHandler->sendSysExMessage(payload, responseLength);
   }
-#else 
-  logSysExMessageSummary(label, data, length);
-#endif
 }
 
 PetalProgramError PetalMidiBridge::handleProgramRequest(PetalMessage message) {
-  program = new PetalSongProgram(message.payload, message.payloadLength);
-  program->setEventHandler(onEventFired);
+  program = new PetalSongProgram(message.payload, message.payloadLength, eventHandler);
   return program->getErrorStatus();
 }
 
@@ -210,4 +165,34 @@ PetalProgramError PetalMidiBridge::parseMessage(byte * bytes, unsigned int lengt
     default:
       return handleProgramMessage(message);
   }
+}
+
+void PetalMidiBridge::processEvents(const uint8_t *bytes, unsigned int length) {
+
+  unsigned int idx = 0;
+
+  uint32_t eventCount = parseULong(bytes, idx);
+  idx += ULONG_SIZE;
+  uint32_t rampCount = parseULong(bytes, idx);
+  idx += ULONG_SIZE;
+
+  uint32_t eventIndex = 0;
+  while (eventIndex < eventCount && idx < length) {
+    PetalProgramEvent event;
+    event.packet = parseULong(bytes, idx);
+    idx += ULONG_SIZE;
+    event.delay = parseULong(bytes, idx);
+    idx += ULONG_SIZE;
+    event.color = parseULong(bytes, idx);
+    idx += ULONG_SIZE;
+    event.volumeValue = bytes[idx++];
+    event.isStartEvent = bytes[idx++];
+    processPacket(event.packet);
+    eventIndex++;
+  }
+}
+
+void PetalMidiBridge::processPacket(uint32_t data) {
+  if (!eventHandler) { return; }
+  eventHandler->processPacket(data);
 }

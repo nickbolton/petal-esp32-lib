@@ -1,8 +1,8 @@
 #include "utils.h"
 #include <Arduino.h>
 
-bool isDebugLogging = false;
-bool isTraceLogging = false;
+#define SYS_EX_MAX_SIZE 4096
+
 
 static const char* LOG_TAG = "Petal";
 
@@ -175,4 +175,20 @@ void logBuffer(String label, const byte* data, unsigned length) {
   } else {
     PETAL_LOGD("%s: (%d bytes)", label, length); 
   }
+}
+
+void logSysExMessageSummary(String label, const byte* data, unsigned length) {
+  PETAL_LOGI("%s: (%d bytes)", label, length);
+}
+
+void logSysExMessage(String label, const byte* data, unsigned length) {
+#if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
+  if (length <= SYS_EX_MAX_SIZE) {
+    logBuffer(label, data, length);
+  } else {
+    logSysExMessageSummary(label, data, length);
+  }
+#else 
+  logSysExMessageSummary(label, data, length);
+#endif
 }

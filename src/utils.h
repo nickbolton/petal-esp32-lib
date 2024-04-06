@@ -3,18 +3,14 @@
 #include <Arduino.h>
 #include <esp32-hal-log.h>
 
-// char * loggerFormat(char * s1);
+#define MANUFACTURER_ID 0x55
+
 char * loggerFormat(String s1);
 
-#define PETAL_LOGI(format, ...) do { char *ff = loggerFormat(format); Serial.printf(ff,  ##__VA_ARGS__); free(ff); } while(0)
-#define PETAL_LOGD(format, ...) do { char *ff = loggerFormat(format); Serial.printf(ff,  ##__VA_ARGS__); free(ff); } while(0)
-#define PETAL_LOGV(format, ...) do { char *ff = loggerFormat(format); Serial.printf(ff,  ##__VA_ARGS__); free(ff); } while(0)
-#define PETAL_LOGE(format, ...) do { char *ff = loggerFormat(format); Serial.printf(ff,  ##__VA_ARGS__); free(ff); } while(0)
-
-// #define PETAL_LOGI(format, ...) do { char *ff = loggerFormat(format); log_i(format,  ##__VA_ARGS__); free(ff); } while(0)
-// #define PETAL_LOGD(format, ...) do { char *ff = loggerFormat(format); log_d(format,  ##__VA_ARGS__); free(ff); } while(0)
-// #define PETAL_LOGV(format, ...) do { char *ff = loggerFormat(format); log_v(format,  ##__VA_ARGS__); free(ff); } while(0)
-// #define PETAL_LOGE(format, ...) do { char *ff = loggerFormat(format); log_e(format,  ##__VA_ARGS__); free(ff); } while(0)
+#define PETAL_LOGI(format, ...) do { char *ff = loggerFormat(format); log_i(format,  ##__VA_ARGS__); free(ff); } while(0)
+#define PETAL_LOGD(format, ...) do { char *ff = loggerFormat(format); log_d(format,  ##__VA_ARGS__); free(ff); } while(0)
+#define PETAL_LOGV(format, ...) do { char *ff = loggerFormat(format); log_v(format,  ##__VA_ARGS__); free(ff); } while(0)
+#define PETAL_LOGE(format, ...) do { char *ff = loggerFormat(format); log_e(format,  ##__VA_ARGS__); free(ff); } while(0)
 
 #define ULONG_SIZE sizeof(uint32_t)
 #define FLOAT_SIZE sizeof(float)
@@ -36,3 +32,6 @@ unsigned int sevenBitEncodingPayloadOffset(unsigned int length);
 void encode7BitEncodedPayload(byte * payload, unsigned int length, unsigned int * encodedLength);
 void decode7BitEncodedPayload(byte * payload, unsigned int length, unsigned int * decodedLength);
 void logBuffer(String label, const byte* data, unsigned length);
+
+void logSysExMessageSummary(String label, const byte* data, unsigned length);
+void logSysExMessage(String label, const byte* data, unsigned length);

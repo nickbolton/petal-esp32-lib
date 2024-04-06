@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "PetalMessage.h"
+#include "PetalEventHandler.h"
 
 struct PetalRamp {
   uint32_t source;
@@ -49,10 +50,9 @@ enum PetalProgramError: byte {
   NO_REQUEST,
 };
 
-using EventFiredCallback = void (*)(float *beat);
-
 class PetalSongProgram {
 private:
+  PetalEventHandler * eventHandler;
   PetalProgramStatus processStatus;
   PetalProgramEvent * events;
   uint32_t * stopEvents;
@@ -68,7 +68,6 @@ private:
   double programStartTime;
   double minEventTime;
   PetalProgramError errorStatus;
-  EventFiredCallback eventHandler = nullptr;
 
   void initialize();
   void parseSongProgram(const uint8_t *program, unsigned int length);
@@ -80,19 +79,16 @@ private:
   void processRunningEvents();
   void processStopEvents();
   void processRampingEvents();
-  void processPacket(const uint32_t data);
-  void sendProgramChange(byte channel, byte number);
-  void sendControlChange(byte channel, byte number, byte value);
+  void processPacket(uint32_t data);
 
   void performRamp(int index, double progress, double linearProgress, double elapsed, bool force);
   double convertProgressToRampShape(int index, double progress);
   void preProcessRamp(int index, double now);
 
 public:
-  PetalSongProgram(const byte *program, unsigned int length);
+  PetalSongProgram(const byte *program, unsigned int length, PetalEventHandler *eventHandlerIn);
   ~PetalSongProgram();
   void process();
   void handleMessage(PetalMessage message);
-  void setEventHandler(EventFiredCallback fptr);
   PetalProgramError getErrorStatus();
 };

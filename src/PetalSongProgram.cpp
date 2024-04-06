@@ -1,5 +1,4 @@
 #include "PetalSongProgram.h"
-#include "PetalSendEvents.h"
 #include "PetalPlayMessage.h"
 #include "utils.h"
 
@@ -11,7 +10,8 @@ const uint8_t EXPONENTIAL_SHAPE = 3;
 const double EXPONENTIAL_STEEPNESS = 15.0;
 const double PI_2 = PI/2.0;
 
-PetalSongProgram::PetalSongProgram(const byte *program, unsigned int length) {
+PetalSongProgram::PetalSongProgram(const byte *program, unsigned int length, PetalEventHandler *eventHandlerIn) {
+  eventHandler = eventHandlerIn;
   initialize();
   parseSongProgram(program, length);
   PETAL_LOGI("ZZZ new PetalSongProgram(%p)", this);
@@ -21,7 +21,8 @@ PetalSongProgram::~PetalSongProgram() {
   free(events);
   free(stopEvents);
   free(ramps);
-  eventHandler = NULL;
+  eventHandler = nullptr;
+  eventHandler = nullptr;
   PETAL_LOGI("ZZZ delete PetalSongProgram(%p)", this);
 }
 
@@ -224,18 +225,14 @@ void PetalSongProgram::processStartEvents() {
   for (int i=0; i<eventCount; i++) {
     if (events[i].isStartEvent) {
       // sendRemoteLogging(appendInt("processing start packet: ", i) + appendInt(" of ", eventCount) + appendLong(" color: ", events[i].color) + " " + packetString(events[i].packet) + "\n");
-      PetalSendEvents::processPacket(events[i].packet);
+      processPacket(events[i].packet);
       if (eventHandler) {
-        (*eventHandler)(&(events[i].beat));
+        eventHandler->onEventFired(&(events[i].beat));
       }
       // setCurrentStatusColor(events[i].color);
     }
   }
   processedStartEvents = true;
-}
-
-void PetalSongProgram::setEventHandler(EventFiredCallback fptr) {
-  eventHandler = fptr;
 }
 
 void PetalSongProgram::processStopEvents() {
@@ -244,9 +241,9 @@ void PetalSongProgram::processStopEvents() {
   }
   for (int i=0; i<stopEventsCount; i++) {
     // sendRemoteLogging(appendInt("processing stop event: ", i) + appendInt(" of ", stopEventsCount) + " : " + packetString(stopEvents[i]) + "\n");
-    PetalSendEvents::processPacket(stopEvents[i]);
+    processPacket(stopEvents[i]);
     if (eventHandler) {
-      (*eventHandler)(&(events[i].beat));
+      eventHandler->onEventFired(&(events[i].beat));
     }
   }
   processedStopEvents = true;
@@ -304,7 +301,7 @@ void PetalSongProgram::processRunningEvents() {
       return;
     }
     // sendRemoteLogging(appendInt("processing packet: ", eventIndex) + appendInt(" of ", eventCount) + appendLong(" color: ", events[eventIndex].color) + " " + packetString(events[eventIndex].packet) + "\n");
-    PetalSendEvents::processPacket(events[eventIndex].packet);
+    processPacket(events[eventIndex].packet);
     // setCurrentStatusColor(events[eventIndex].color);
   }
 }
@@ -353,7 +350,7 @@ void PetalSongProgram::performRamp(int index, double progress, double linearProg
 
   uint32_t basePacket = ramp.source & 0xFFFFFF00;
   uint32_t packet = basePacket + (uint8_t)value;
-  PetalSendEvents::processPacket(packet);
+  processPacket(packet);
 }
 
 double PetalSongProgram::convertProgressToRampShape(int index, double progress) {
@@ -422,4 +419,9 @@ void PetalSongProgram::preProcessRamp(int index, double now) {
   if (timeInSong >= ramp.cycleStart) {
     performRamp(index, shapeProgress, truncatedProgress, elapsedTime, false);
   }
+}
+
+void PetalSongProgram::processPacket(uint32_t data) {
+  if (!eventHandler) { return; }
+  eventHandler->processPacket(data);
 }
