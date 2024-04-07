@@ -61,7 +61,7 @@ void  PetalUtils::encode7BitEncodedPayload(byte * payload, unsigned int length, 
     return;
   }
 
-  byte* encoded = (byte *)malloc(length);
+  byte encoded[length];
 
   unsigned int byteCount = 0;
   byte overflowByte = 0;
@@ -86,7 +86,6 @@ void  PetalUtils::encode7BitEncodedPayload(byte * payload, unsigned int length, 
 
   // copy encoded back into the source
   memcpy(payload, encoded, *encodedLength);
-  free(encoded);
 }
 
 unsigned int  PetalUtils::sevenBitEncodingPayloadOffset(unsigned int length) {
@@ -151,7 +150,7 @@ void  PetalUtils::decode7BitEncodedPayload(byte * payload, unsigned int length, 
 }
 
 void  PetalUtils::logBuffer(String label, const byte* data, unsigned length) {
-  char* dataBuffer = (char *)malloc(length*4);
+  char dataBuffer[length*4];
   int pos = 0;
   for (uint16_t i = 0; i < length; i++) {
     char dataBuf[4];
@@ -164,7 +163,6 @@ void  PetalUtils::logBuffer(String label, const byte* data, unsigned length) {
   } else {
     PETAL_LOGD("%s: (%d bytes)", label, length); 
   }
-  free(dataBuffer);
 }
 
 void  PetalUtils::logSysExMessageSummary(String label, const byte* data, unsigned length) {
