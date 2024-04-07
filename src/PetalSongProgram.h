@@ -4,35 +4,35 @@
 #include "PetalEventHandler.h"
 
 struct PetalRamp {
-  uint32_t source;
+  unsigned long source;
   double start;
   double end;
   double duration;
   double dutyCycle;
   double cycleStart;
-  uint8_t startValue;
-  uint8_t endValue;
-  uint8_t shape;
-  uint8_t reversed;
-  int8_t currentValue;
+  byte startValue;
+  byte endValue;
+  byte shape;
+  byte reversed;
+  byte currentValue;
   bool ended;
   int count;
 };
 
 struct PetalProgramEvent {
-  uint32_t packet;
+  unsigned long packet;
   float beat;
-  uint32_t delay;
-  uint32_t color;
-  uint8_t volumeValue;
-  uint8_t isStartEvent;
+  unsigned long delay;
+  unsigned long color;
+  byte volumeValue;
+  byte isStartEvent;
 };
 
-enum PetalEventType: uint8_t {
+enum PetalEventType: byte {
   MIDI_EVENT = 0,
 };
 
-enum PetalProgramStatus: uint32_t {
+enum PetalProgramStatus: unsigned long {
   UNLOADED = 0,
   LOADED,
   RUNNING,
@@ -55,22 +55,22 @@ private:
   PetalEventHandler * eventHandler;
   PetalProgramStatus processStatus;
   PetalProgramEvent * events;
-  uint32_t * stopEvents;
+  unsigned long * stopEvents;
   PetalRamp * ramps;
 
-  int rampCount;
+  unsigned int rampCount;
 
   bool processedStartEvents;
   bool processedStopEvents;
-  int eventIndex;
-  int eventCount;
-  int stopEventsCount;
+  unsigned int eventIndex;
+  unsigned int eventCount;
+  unsigned int stopEventsCount;
   double programStartTime;
   double minEventTime;
   PetalProgramError errorStatus;
 
   void initialize();
-  void parseSongProgram(const uint8_t *program, unsigned int length);
+  void parseSongProgram(const byte *program, unsigned int length);
   void reset();
   void unload();
   void resetRamps();
@@ -79,7 +79,7 @@ private:
   void processRunningEvents();
   void processStopEvents();
   void processRampingEvents();
-  void processPacket(uint32_t data);
+  void processPacket(unsigned long data);
 
   void performRamp(int index, double progress, double linearProgress, double elapsed, bool force);
   double convertProgressToRampShape(int index, double progress);

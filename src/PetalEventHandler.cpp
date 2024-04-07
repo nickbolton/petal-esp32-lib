@@ -1,6 +1,6 @@
 #include "PetalEventHandler.h"
 #include "PetalMessage.h"
-#include "utils.h"
+#include "PetalUtils.h"
 
 const byte BANK_STATUS = 0x10;
 const byte PC_STATUS = 0xc0;
@@ -22,7 +22,7 @@ void PetalEventHandler::sendSysExMessage(const byte* payload, unsigned payloadLe
   byte message[manufacturerLength + payloadLength];
   memcpy(message, manufacturerID, manufacturerLength); 
   memcpy(message + manufacturerLength, payload, payloadLength);
-  logSysExMessage("TX", message, sizeof(message));
+  PetalUtils::logSysExMessage("TX", message, sizeof(message));
   interop->sendSysExMessage(message, sizeof(message));
 }
 
@@ -36,7 +36,7 @@ void PetalEventHandler::sendControlChange(byte channel, byte number, byte value)
   interop->sendControlChange(channel, number, value);
 }
 
-void PetalEventHandler::processPacket(uint32_t data) {
+void PetalEventHandler::processPacket(unsigned long data) {
   byte status = data >> 24;
   byte channel = (data & 0xffffff) >> 16;
   byte number =  (data & 0xffff) >> 8;
@@ -56,7 +56,7 @@ void PetalEventHandler::processPacket(uint32_t data) {
 
 void PetalEventHandler::onEventFired(float * beat) {
   byte *beatBytes = (byte *)beat;
-  unsigned int encodedLength = sevenBitEncodingPayloadOffset(22);
+  unsigned int encodedLength = PetalUtils::sevenBitEncodingPayloadOffset(22);
   byte payload[encodedLength] = {
     // uuid
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -69,6 +69,6 @@ void PetalEventHandler::onEventFired(float * beat) {
   };
 
   unsigned int responseLength = 0;
-  encode7BitEncodedPayload(payload, 22, &responseLength);
+  PetalUtils::encode7BitEncodedPayload(payload, 22, &responseLength);
   sendSysExMessage(payload, responseLength);
 }

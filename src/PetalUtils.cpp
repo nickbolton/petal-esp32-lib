@@ -1,78 +1,67 @@
-#include "utils.h"
-#include <Arduino.h>
+#include "PetalUtils.h"
 
 #define SYS_EX_MAX_SIZE 4096
 
+char *  petal_loggerFormat(String s1) {
+  return PetalUtils::stringToCharArray("PETAL : " + s1 + "\n");
+}
 
-static const char* LOG_TAG = "Petal";
-
-void sendRemoteLoggingString(String s) {
+void PetalUtils::sendRemoteLoggingString(String s) {
 
 }
 
-void sendRemoteLogging(char * s) {
+void  PetalUtils::sendRemoteLogging(char * s) {
 
 }
 
-uint32_t leftShift(const byte b, const byte bits) {
-  uint32_t value = (uint32_t)b;
+unsigned long  PetalUtils::leftShift(const byte b, const byte bits) {
+  unsigned long value = (unsigned long)b;
   return value << bits;
 }
 
-uint32_t parseULong(const uint8_t *programArray, int idx) {
-  uint32_t d0 = (uint32_t)programArray[idx];
-  uint32_t d1 = (uint32_t)programArray[idx + 1];
-  uint32_t d2 = (uint32_t)programArray[idx + 2];
-  uint32_t d3 = (uint32_t)programArray[idx + 3];  
+unsigned long  PetalUtils::parseULong(const byte *programArray, int idx) {
+  unsigned long d0 = (unsigned long)programArray[idx];
+  unsigned long d1 = (unsigned long)programArray[idx + 1];
+  unsigned long d2 = (unsigned long)programArray[idx + 2];
+  unsigned long d3 = (unsigned long)programArray[idx + 3];  
   return (d3 << 24) + (d2 << 16) + (d1 << 8) + d0;
 }
 
-float parseFloat(const uint8_t *programArray, int idx) {
+float  PetalUtils::parseFloat(const byte *programArray, int idx) {
   return (float)programArray[idx];
 }
 
-uint8_t parsePacketStatus(const int data) {
+byte  PetalUtils::parsePacketStatus(const int data) {
   return (uint8_t)(data >> 24);
 }
 
-uint8_t parsePacketChannel(const int data) {
+byte  PetalUtils::parsePacketChannel(const int data) {
   return (uint8_t)((data & 0xffffff) >> 16);
 }
 
-uint8_t parsePacketNumber(const int data) {
+byte  PetalUtils::parsePacketNumber(const int data) {
   return (uint8_t)((data & 0xffff) >> 8);
 }
 
-uint8_t parsePacketValue(const int data) {
+byte  PetalUtils::parsePacketValue(const int data) {
   return (uint8_t)(data & 0xff);
 }
 
-char * stringToCharArray(String s) {
+char *  PetalUtils::stringToCharArray(String s) {
   size_t len = s.length() + 1;
   char * result = (char *)malloc(len);
   s.toCharArray(result, len);
   return result;
 }
 
-char * loggerFormat(String s1) {
-  return stringToCharArray("PETAL : " + s1 + "\n");
-  // const char* prefix = "PETAL : ";
-  // const char* suffix = "\n";
-  // char* result = (char *)malloc(strlen(prefix)+strlen(s1)+strlen(suffix)+1);
-  // strcpy(result, prefix);
-  // strcat(result, s1);
-  // strcat(result, suffix);
-  // return result;
-}
-
-void encode7BitEncodedPayload(byte * payload, unsigned int length, unsigned int * encodedLength) {
+void  PetalUtils::encode7BitEncodedPayload(byte * payload, unsigned int length, unsigned int * encodedLength) {
   *encodedLength = 0;
 
   if (!payload || length == 0) {
     return;
   }
 
-  byte encoded[length];
+  byte* encoded = (byte *)malloc(length);
 
   unsigned int byteCount = 0;
   byte overflowByte = 0;
@@ -97,9 +86,10 @@ void encode7BitEncodedPayload(byte * payload, unsigned int length, unsigned int 
 
   // copy encoded back into the source
   memcpy(payload, encoded, *encodedLength);
+  free(encoded);
 }
 
-unsigned int sevenBitEncodingPayloadOffset(unsigned int length) {
+unsigned int  PetalUtils::sevenBitEncodingPayloadOffset(unsigned int length) {
   unsigned int encodedLength = 0;
 
   if (length == 0) {
@@ -107,7 +97,6 @@ unsigned int sevenBitEncodingPayloadOffset(unsigned int length) {
   }
 
   unsigned int byteCount = 0;
-  byte overflowByte = 0;
 
   for (unsigned int idx = 0; idx < length; idx++) {
     byteCount++;
@@ -125,7 +114,7 @@ unsigned int sevenBitEncodingPayloadOffset(unsigned int length) {
   return encodedLength;
 }
 
-void decode7BitEncodedPayload(byte * payload, unsigned int length, unsigned int * decodedLength) {
+void  PetalUtils::decode7BitEncodedPayload(byte * payload, unsigned int length, unsigned int * decodedLength) {
   *decodedLength = 0;
 
   if (!payload || length == 0) {
@@ -161,8 +150,8 @@ void decode7BitEncodedPayload(byte * payload, unsigned int length, unsigned int 
   // logBuffer("RESULT", payload, length);
 }
 
-void logBuffer(String label, const byte* data, unsigned length) {
-  char dataBuffer[length*4];
+void  PetalUtils::logBuffer(String label, const byte* data, unsigned length) {
+  char* dataBuffer = (char *)malloc(length*4);
   int pos = 0;
   for (uint16_t i = 0; i < length; i++) {
     char dataBuf[4];
@@ -175,13 +164,14 @@ void logBuffer(String label, const byte* data, unsigned length) {
   } else {
     PETAL_LOGD("%s: (%d bytes)", label, length); 
   }
+  free(dataBuffer);
 }
 
-void logSysExMessageSummary(String label, const byte* data, unsigned length) {
+void  PetalUtils::logSysExMessageSummary(String label, const byte* data, unsigned length) {
   PETAL_LOGI("%s: (%d bytes)", label, length);
 }
 
-void logSysExMessage(String label, const byte* data, unsigned length) {
+void  PetalUtils::logSysExMessage(String label, const byte* data, unsigned length) {
 #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
   if (length <= SYS_EX_MAX_SIZE) {
     logBuffer(label, data, length);

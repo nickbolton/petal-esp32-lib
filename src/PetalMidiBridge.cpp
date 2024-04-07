@@ -1,5 +1,5 @@
 #include "PetalMidiBridge.h"
-#include "utils.h"
+#include "PetalUtils.h"
 
 byte incomingMidiChannel = 16;
 const byte songProgramRequestNumber = 101;
@@ -65,13 +65,13 @@ void PetalMidiBridge::receiveSysExMessage(byte * data, unsigned length) {
   if (data[0] != 0xF0 || data[1] != 0x0 || data[2] != 0x0 || data[3] != MANUFACTURER_ID || data[length-1] != 0xF7) {
     return;
   }
-  logSysExMessage("RX SYSEX", data, length);
+  PetalUtils::logSysExMessage("RX SYSEX", data, length);
 
   unsigned int prefixLength = 4;
   byte *messageBytes = data + prefixLength; // leave off sysex prefix
   unsigned int messageLength = length - 5; // leave off sysex suffix
 
-  logBuffer("MSG", messageBytes, messageLength);
+  PetalUtils::logBuffer("MSG", messageBytes, messageLength);
 
   PetalProgramError programError = parseMessage(messageBytes, messageLength);
 
@@ -80,8 +80,8 @@ void PetalMidiBridge::receiveSysExMessage(byte * data, unsigned length) {
   messageBytes[16] = RESPONSE;
   messageBytes[18] = programError;
   unsigned int responseLength = 0;
-  logBuffer("RESP", messageBytes, 19);
-  encode7BitEncodedPayload(messageBytes, 19, &responseLength);
+  PetalUtils::logBuffer("RESP", messageBytes, 19);
+  PetalUtils::encode7BitEncodedPayload(messageBytes, 19, &responseLength);
   if (eventHandler) {
     eventHandler->sendSysExMessage(messageBytes, responseLength);
   }
@@ -93,7 +93,7 @@ bool PetalMidiBridge::isConnected() {
 }
   
 void PetalMidiBridge::sendPetalRequest(PetalMessageAction action) {
-  unsigned int encodedLength = sevenBitEncodingPayloadOffset(18);
+  unsigned int encodedLength = PetalUtils::sevenBitEncodingPayloadOffset(18);
   byte payload[encodedLength] = {
     // uuid
     0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -103,7 +103,7 @@ void PetalMidiBridge::sendPetalRequest(PetalMessageAction action) {
     action,
   };
   unsigned int responseLength = 0;
-  encode7BitEncodedPayload(payload, 18, &responseLength);
+  PetalUtils::encode7BitEncodedPayload(payload, 18, &responseLength);
   if (eventHandler) {
     eventHandler->sendSysExMessage(payload, responseLength);
   }
@@ -140,10 +140,9 @@ PetalProgramError PetalMidiBridge::parseMessage(byte * bytes, unsigned int lengt
   unsigned int payloadLength = 0;
 
   // bytes is decoded in place
-  logBuffer("RAW MSG", bytes, length);
-  decode7BitEncodedPayload(bytes, length, &payloadLength);
+  PetalUtils::logBuffer("RAW MSG", bytes, length);
+  PetalUtils::decode7BitEncodedPayload(bytes, length, &payloadLength);
 
-  PetalProgramError programError = VALID_REQUEST;
   PetalMessageType type = (PetalMessageType)bytes[16]; // first 16 bytes is the uuid
   PetalMessageAction action = (PetalMessageAction)bytes[17];
 
@@ -155,7 +154,7 @@ PetalProgramError PetalMidiBridge::parseMessage(byte * bytes, unsigned int lengt
   byte * payload = bytes + 18;
   payloadLength = length - 18;
 
-  logBuffer("MSG PAYLOAD", payload, payloadLength);
+  PetalUtils::logBuffer("MSG PAYLOAD", payload, payloadLength);
 
   PetalMessage message = PetalMessage(type, action, payload, payloadLength);
   switch (action) {
@@ -167,23 +166,23 @@ PetalProgramError PetalMidiBridge::parseMessage(byte * bytes, unsigned int lengt
   }
 }
 
-void PetalMidiBridge::processEvents(const uint8_t *bytes, unsigned int length) {
+void PetalMidiBridge::processEvents(const byte *bytes, unsigned int length) {
 
   unsigned int idx = 0;
 
-  uint32_t eventCount = parseULong(bytes, idx);
+  unsigned long eventCount = PetalUtils::parseULong(bytes, idx);
   idx += ULONG_SIZE;
-  uint32_t rampCount = parseULong(bytes, idx);
+  unsigned long rampCount = PetalUtils::parseULong(bytes, idx);
   idx += ULONG_SIZE;
 
-  uint32_t eventIndex = 0;
+  unsigned long eventIndex = 0;
   while (eventIndex < eventCount && idx < length) {
     PetalProgramEvent event;
-    event.packet = parseULong(bytes, idx);
+    event.packet = PetalUtils::parseULong(bytes, idx);
     idx += ULONG_SIZE;
-    event.delay = parseULong(bytes, idx);
+    event.delay = PetalUtils::parseULong(bytes, idx);
     idx += ULONG_SIZE;
-    event.color = parseULong(bytes, idx);
+    event.color = PetalUtils::parseULong(bytes, idx);
     idx += ULONG_SIZE;
     event.volumeValue = bytes[idx++];
     event.isStartEvent = bytes[idx++];
@@ -192,7 +191,7 @@ void PetalMidiBridge::processEvents(const uint8_t *bytes, unsigned int length) {
   }
 }
 
-void PetalMidiBridge::processPacket(uint32_t data) {
+void PetalMidiBridge::processPacket(unsigned long data) {
   if (!eventHandler) { return; }
   eventHandler->processPacket(data);
 }

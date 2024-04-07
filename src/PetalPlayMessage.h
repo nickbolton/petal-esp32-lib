@@ -4,9 +4,9 @@
 
 class PetalPlayMessage {
 private:
-uint32_t timestamp;
+unsigned long timestamp;
 
 public:
   PetalPlayMessage(PetalMessage message);
-  uint32_t getTimestamp();
+  unsigned long getTimestamp();
 };

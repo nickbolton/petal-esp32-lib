@@ -1,12 +1,12 @@
 #include "PetalSongProgram.h"
 #include "PetalPlayMessage.h"
-#include "utils.h"
+#include "PetalUtils.h"
 
 const int MAX_EVENTS_SIZE = 512;
-const uint8_t TRIANGLE_SHAPE = 0;
-const uint8_t SQUARE_SHAPE = 1;
-const uint8_t SINE_SHAPE = 2;
-const uint8_t EXPONENTIAL_SHAPE = 3;
+const byte TRIANGLE_SHAPE = 0;
+const byte SQUARE_SHAPE = 1;
+const byte SINE_SHAPE = 2;
+const byte EXPONENTIAL_SHAPE = 3;
 const double EXPONENTIAL_STEEPNESS = 15.0;
 const double PI_2 = PI/2.0;
 
@@ -107,7 +107,7 @@ void PetalSongProgram::handleMessage(PetalMessage message) {
   }
 }
 
-void PetalSongProgram::parseSongProgram(const uint8_t *program, unsigned int programLength) {
+void PetalSongProgram::parseSongProgram(const byte *program, unsigned int programLength) {
   errorStatus = VALID_REQUEST;
   if (processStatus != UNLOADED) {
     unload();
@@ -122,17 +122,17 @@ void PetalSongProgram::parseSongProgram(const uint8_t *program, unsigned int pro
 
   int idx = 0;
 
-  stopEventsCount = parseULong(program, idx);
+  stopEventsCount = PetalUtils::parseULong(program, idx);
   idx += ULONG_SIZE;
-  eventCount = parseULong(program, idx);
+  eventCount = PetalUtils::parseULong(program, idx);
   idx += ULONG_SIZE;
-  rampCount = parseULong(program, idx);
+  rampCount = PetalUtils::parseULong(program, idx);
   idx += ULONG_SIZE;
 
-  uint32_t expectedStopEventsSize = stopEventsCount * ULONG_SIZE;
-  uint32_t expectedEventsSize = eventCount * (3 * ULONG_SIZE + 2); 
-  uint32_t expectedRampEventsSize = rampCount * (4 * ULONG_SIZE + 3);
-  uint32_t totalExpectedSize = expectedStopEventsSize + expectedEventsSize + expectedRampEventsSize;
+  unsigned long expectedStopEventsSize = stopEventsCount * ULONG_SIZE;
+  unsigned long expectedEventsSize = eventCount * (3 * ULONG_SIZE + 2); 
+  unsigned long expectedRampEventsSize = rampCount * (4 * ULONG_SIZE + 3);
+  unsigned long totalExpectedSize = expectedStopEventsSize + expectedEventsSize + expectedRampEventsSize;
 
   if (programLength < totalExpectedSize) {
     errorStatus = INVALID_PAYLOAD_SIZE;
@@ -142,17 +142,15 @@ void PetalSongProgram::parseSongProgram(const uint8_t *program, unsigned int pro
   processStatus = LOADED;
   PETAL_LOGI("Song Program LOADED");
 
-  uint32_t parseStartTime = millis();
-
   PETAL_LOGI("stopEventsCount: %d, idx: %d, programLength: %d", stopEventsCount, idx, programLength);
 
   events = (PetalProgramEvent *)malloc(eventCount * sizeof(PetalProgramEvent));
-  stopEvents = (uint32_t *)malloc(stopEventsCount * sizeof(uint32_t));
+  stopEvents = (unsigned long *)malloc(stopEventsCount * sizeof(unsigned long));
   ramps = (PetalRamp *)malloc(rampCount * sizeof(PetalRamp));
 
-  uint32_t eventIndex = 0;
+  unsigned long eventIndex = 0;
   while (eventIndex < stopEventsCount) {
-    stopEvents[eventIndex] = parseULong(program, idx);
+    stopEvents[eventIndex] = PetalUtils::parseULong(program, idx);
     idx += ULONG_SIZE;
     eventIndex++;
   }
@@ -162,13 +160,13 @@ void PetalSongProgram::parseSongProgram(const uint8_t *program, unsigned int pro
   eventIndex = 0;
   while (eventIndex < eventCount) {
     PetalProgramEvent event;
-    event.packet = parseULong(program, idx);
+    event.packet = PetalUtils::parseULong(program, idx);
     idx += ULONG_SIZE;
-    event.beat = parseFloat(program, idx);
+    event.beat = PetalUtils::parseFloat(program, idx);
     idx += FLOAT_SIZE;
-    event.delay = parseULong(program, idx);
+    event.delay = PetalUtils::parseULong(program, idx);
     idx += ULONG_SIZE;
-    event.color = parseULong(program, idx);
+    event.color = PetalUtils::parseULong(program, idx);
     idx += ULONG_SIZE;
     event.volumeValue = program[idx++];
     event.isStartEvent = program[idx++];
@@ -180,21 +178,21 @@ void PetalSongProgram::parseSongProgram(const uint8_t *program, unsigned int pro
 
   PETAL_LOGI("rampCount: %d, idx: %d", rampCount, idx);
 
-  int rampIndex = 0;
+  unsigned int rampIndex = 0;
   while (rampIndex < rampCount) {
-    uint32_t rampSource = parseULong(program, idx);
+    unsigned long rampSource = PetalUtils::parseULong(program, idx);
     idx += ULONG_SIZE;
 
     PetalRamp ramp;
     ramp.currentValue = -1;
     ramp.source = rampSource;
-    ramp.start = (double)parseULong(program, idx);
+    ramp.start = (double)PetalUtils::parseULong(program, idx);
     idx += ULONG_SIZE;
     ramp.cycleStart = ramp.start;
-    ramp.duration = (double)parseULong(program, idx);
+    ramp.duration = (double)PetalUtils::parseULong(program, idx);
     ramp.end = ramp.start + ramp.duration;
     idx += ULONG_SIZE;
-    ramp.dutyCycle = (double)parseULong(program, idx);
+    ramp.dutyCycle = (double)PetalUtils::parseULong(program, idx);
     idx += ULONG_SIZE;
     ramp.startValue = program[idx++];
     ramp.endValue = program[idx++];
@@ -222,7 +220,7 @@ void PetalSongProgram::processStartEvents() {
   if (processedStartEvents) {
     return;
   }
-  for (int i=0; i<eventCount; i++) {
+  for (unsigned int i=0; i<eventCount; i++) {
     if (events[i].isStartEvent) {
       // sendRemoteLogging(appendInt("processing start packet: ", i) + appendInt(" of ", eventCount) + appendLong(" color: ", events[i].color) + " " + packetString(events[i].packet) + "\n");
       processPacket(events[i].packet);
@@ -239,7 +237,7 @@ void PetalSongProgram::processStopEvents() {
   if (processedStopEvents) {
     return;
   }
-  for (int i=0; i<stopEventsCount; i++) {
+  for (unsigned int i=0; i<stopEventsCount; i++) {
     // sendRemoteLogging(appendInt("processing stop event: ", i) + appendInt(" of ", stopEventsCount) + " : " + packetString(stopEvents[i]) + "\n");
     processPacket(stopEvents[i]);
     if (eventHandler) {
@@ -262,6 +260,8 @@ void PetalSongProgram::processProgramEvents() {
     case STOPPED:
       processStopEvents();
       break;
+    case PAUSED:
+      break;
   }
 }
 
@@ -277,8 +277,8 @@ void PetalSongProgram::processRunningEvents() {
     return;
   }
 
-  uint32_t now = millis();
-  uint32_t elapsedTime = now - programStartTime;
+  unsigned long now = millis();
+  unsigned long elapsedTime = now - programStartTime;
 
   // if (isDebugLogging) {
   //   debug(appendLong("minEventTime: ", minEventTime));
@@ -309,7 +309,7 @@ void PetalSongProgram::processRunningEvents() {
 // Ramps
 
 void PetalSongProgram::resetRamps() {
-  for (int i=0; i<rampCount; i++) {
+  for (unsigned int i=0; i<rampCount; i++) {
     ramps[i].currentValue = -1;
     ramps[i].reversed = false;
     ramps[i].cycleStart = ramps[i].start;
@@ -321,7 +321,7 @@ void PetalSongProgram::resetRamps() {
 
 void PetalSongProgram::performRamp(int index, double progress, double linearProgress, double elapsed, bool force) {
   PetalRamp ramp = ramps[index];
-  int8_t value = ramp.startValue + (int8_t)((ramp.endValue - ramp.startValue) * progress);
+  byte value = ramp.startValue + (byte)((ramp.endValue - ramp.startValue) * progress);
   if (ramp.shape == SQUARE_SHAPE) {
     if (progress < 0.5) {
       value = ramp.startValue;
@@ -348,8 +348,8 @@ void PetalSongProgram::performRamp(int index, double progress, double linearProg
   ramps[index].currentValue = value;
   ramps[index].count++;
 
-  uint32_t basePacket = ramp.source & 0xFFFFFF00;
-  uint32_t packet = basePacket + (uint8_t)value;
+  unsigned long basePacket = ramp.source & 0xFFFFFF00;
+  unsigned long packet = basePacket + value;
   processPacket(packet);
 }
 
@@ -371,7 +371,7 @@ void PetalSongProgram::processRampingEvents() {
   }
   double now = (double)millis();
 
-  for (int i=0; i<rampCount; i++) {
+  for (unsigned int i=0; i<rampCount; i++) {
     preProcessRamp(i, now);
   }
 }
@@ -381,11 +381,6 @@ void PetalSongProgram::preProcessRamp(int index, double now) {
   double elapsedTime = now - programStartTime;
   double timeInSong = elapsedTime + minEventTime;
   double overallProgress = (timeInSong - ramp.start) / ramp.duration;
-  double shapeOverallProgress = convertProgressToRampShape(index, overallProgress);
-
-  // if (isDebugLogging) {
-  //   debug(appendDouble("minEventTime: ", minEventTime) + appendDouble("ramp.start: ", ramp.start));
-  // }
 
   if (ramp.ended) {
     return;
@@ -410,7 +405,7 @@ void PetalSongProgram::preProcessRamp(int index, double now) {
     return;
   }
 
-  double truncatedProgress = min(max(cycleProgress, 0.0), 1.0);
+  double truncatedProgress = std::min(std::max(cycleProgress, 0.0), 1.0);
   if (ramp.reversed) {
     truncatedProgress = 1.0 - truncatedProgress;
   }
@@ -421,7 +416,7 @@ void PetalSongProgram::preProcessRamp(int index, double now) {
   }
 }
 
-void PetalSongProgram::processPacket(uint32_t data) {
+void PetalSongProgram::processPacket(unsigned long data) {
   if (!eventHandler) { return; }
   eventHandler->processPacket(data);
 }

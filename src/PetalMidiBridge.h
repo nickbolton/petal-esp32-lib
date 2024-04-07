@@ -22,13 +22,13 @@ private:
   PetalProgramError handleProgramMessage(PetalMessage message);
   PetalProgramError handleProgramRequest(PetalMessage message);
   void handleSongProgramRequest(PetalMessageAction action);
-  void processPacket(uint32_t data);
+  void processPacket(unsigned long data);
 
 public:
   PetalMidiBridge(PetalInteroperability *interop);
   ~PetalMidiBridge();
   void process();
-  void processEvents(const uint8_t *bytes, unsigned int length);
+  void processEvents(const byte *bytes, unsigned int length);
   void receiveSysExMessage(byte * message, unsigned length);
   void receiveControlChange(byte channel, byte number, byte value);
 };
