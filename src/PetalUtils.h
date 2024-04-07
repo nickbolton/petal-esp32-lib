@@ -15,10 +15,10 @@ char *  petal_loggerFormat(String s1);
 #define PETAL_LOGV(format, ...) do { char *ff = petal_loggerFormat(format); log_v(format,  ##__VA_ARGS__); free(ff); } while(0)
 #define PETAL_LOGE(format, ...) do { char *ff = petal_loggerFormat(format); log_e(format,  ##__VA_ARGS__); free(ff); } while(0)
 #else
-#define PETAL_LOGI(format, ...) do { char *ff = petal_loggerFormat(format); Serial.print(format); free(ff); } while(0)
-#define PETAL_LOGD(format, ...) do { char *ff = petal_loggerFormat(format); Serial.print(format); free(ff); } while(0)
-#define PETAL_LOGV(format, ...) do { char *ff = petal_loggerFormat(format); Serial.print(format); free(ff); } while(0)
-#define PETAL_LOGE(format, ...) do { char *ff = petal_loggerFormat(format); Serial.print(format); free(ff); } while(0)
+#define PETAL_LOGI(format, ...) do { char *ff = petal_loggerFormat(format); Serial.println(format); free(ff); } while(0)
+#define PETAL_LOGD(format, ...) do { char *ff = petal_loggerFormat(format); Serial.println(format); free(ff); } while(0)
+#define PETAL_LOGV(format, ...) do { char *ff = petal_loggerFormat(format); Serial.println(format); free(ff); } while(0)
+#define PETAL_LOGE(format, ...) do { char *ff = petal_loggerFormat(format); Serial.println(format); free(ff); } while(0)
 #endif
 
 #define ULONG_SIZE sizeof(uint32_t)

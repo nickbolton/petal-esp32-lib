@@ -5,7 +5,6 @@ byte incomingMidiChannel = 16;
 const byte songProgramRequestNumber = 101;
 
 PetalMidiBridge::PetalMidiBridge(PetalInteroperability *interopIn) {
-  setup();
   interop = interopIn;
   eventHandler = new PetalEventHandler(interop);
 }
@@ -37,7 +36,6 @@ void PetalMidiBridge::setup() {
 }
 
 void PetalMidiBridge::process() {
-  PETAL_LOGI("loop!!");
   if (program) {
     program->process();
   }

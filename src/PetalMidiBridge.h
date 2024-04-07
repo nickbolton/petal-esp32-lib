@@ -13,7 +13,6 @@ private:
   PetalEventHandler *eventHandler = nullptr;
   PetalInteroperability *interop = nullptr;
 
-  void setup();
   bool isConnected();
   void sendPetalRequest(PetalMessageAction action);
 
@@ -27,6 +26,7 @@ private:
 public:
   PetalMidiBridge(PetalInteroperability *interop);
   ~PetalMidiBridge();
+  void setup();
   void process();
   void processEvents(const byte *bytes, unsigned int length);
   void receiveSysExMessage(byte * message, unsigned length);
