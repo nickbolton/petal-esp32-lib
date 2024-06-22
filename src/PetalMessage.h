@@ -1,6 +1,14 @@
 #pragma once
 #include <Arduino.h>
 
+const unsigned UUID_LENGTH = 16;
+
+enum PetalMessageSource {
+  DEVICE_SOURCE = 0,
+  CLIENT_SOURCE = 1,
+  MIDI_SOURCE   = 2,
+};
+
 enum PetalMessageType {
   REQUEST      = 0,
   RESPONSE     = 1,
@@ -25,13 +33,25 @@ enum PetalMessageAction {
 };
 
 struct PetalMessage {
+  PetalMessageSource source;
   PetalMessageType type;
   PetalMessageAction action;
-  byte * payload = NULL;
+  byte * payload = nullptr;
   unsigned int payloadLength = 0;
   PetalMessage(
+    PetalMessageSource s,
     PetalMessageType tp,
     PetalMessageAction act,
-    byte * pl = NULL,
-    int pll = 0) : type(tp), action(act), payload(pl), payloadLength(pll) {}
+    const byte * pl = nullptr,
+    int pll = 0) {
+      source = s;
+      type = tp;
+      action = act;
+      payloadLength = pll;
+      if (pl) {
+        payload = (byte *)malloc(payloadLength);
+        memcpy(payload, pl, payloadLength);
+      }
+    }
+  ~PetalMessage() { if (payload) free(payload); }
 };

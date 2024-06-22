@@ -14,5 +14,5 @@ public:
   void sendProgramChange(byte channel, byte number);
   void sendControlChange(byte channel, byte number, byte value);
   void processPacket(unsigned long data);
-  void onEventFired(float * beat);
+  void onEventFired(float beat, byte noteCount, byte noteValue);
 };

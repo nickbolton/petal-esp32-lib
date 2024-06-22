@@ -19,11 +19,12 @@ void PetalEventHandler::sendSysExMessage(const byte* payload, unsigned payloadLe
   byte manufacturerID[] = { 0x0, 0x0, MANUFACTURER_ID }; 
 
   unsigned int manufacturerLength = sizeof(manufacturerID);
-  byte message[manufacturerLength + payloadLength];
+  unsigned int totalLength = manufacturerLength + payloadLength;
+  byte message[totalLength];
   memcpy(message, manufacturerID, manufacturerLength); 
   memcpy(message + manufacturerLength, payload, payloadLength);
-  PetalUtils::logSysExMessage("TX", message, sizeof(message));
-  interop->sendSysExMessage(message, sizeof(message));
+  PetalUtils::logSysExMessage("SYSEX PAYLOAD: ", message, totalLength);
+  interop->sendSysExMessage(message, totalLength);
 }
 
 void PetalEventHandler::sendProgramChange(byte channel, byte number) {
@@ -50,25 +51,42 @@ void PetalEventHandler::processPacket(unsigned long data) {
   } else if (status == CC_STATUS) {
     sendControlChange(channel, number, value);
   } else {
-     PETAL_LOGI("Invalid event status %02x, channel %02x, number: %02x, value: %02x", status, channel, number, value);
+     PETAL_LOGI("Invalid event status 0x%x, channel %d, number: 0x%x, value: 0x%x", status, channel, number, value);
   }
 }
 
-void PetalEventHandler::onEventFired(float * beat) {
-  byte *beatBytes = (byte *)beat;
-  unsigned int encodedLength = PetalUtils::sevenBitEncodingPayloadOffset(22);
-  byte payload[encodedLength] = {
-    // uuid
-    0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-    // type
-    NOTIFICATION,
-    // action
-    EVENT_FIRED,
-    // beat
-    beatBytes[0],  beatBytes[1],  beatBytes[2],  beatBytes[3], 
-  };
+void PetalEventHandler::onEventFired(float beat, byte noteCount, byte noteValue) {
+  const unsigned int beatLength = ULONG_SIZE;
+  const unsigned int signatureLength = 2;
+  const unsigned int controlLength = 3;
+  const unsigned int totalPayloadLength = UUID_LENGTH + controlLength + beatLength + signatureLength;
+  unsigned int encodedLength = PetalUtils::sevenBitEncodingPayloadOffset(totalPayloadLength);
+  unsigned long milliBeat = (unsigned long)(beat * 1000.0);
 
-  unsigned int responseLength = 0;
-  PetalUtils::encode7BitEncodedPayload(payload, 22, &responseLength);
+  byte payload[encodedLength];
+  for (int i=0; i<UUID_LENGTH; i++) {
+    payload[i] = 0;
+  }
+  payload[UUID_LENGTH] = DEVICE_SOURCE; // source
+  payload[UUID_LENGTH+1] = NOTIFICATION; // type
+  payload[UUID_LENGTH+2] = EVENT_FIRED; // action
+  payload[UUID_LENGTH+3] = noteCount; // signature
+  payload[UUID_LENGTH+4] = noteValue; 
+
+  memcpy(payload+UUID_LENGTH+controlLength+signatureLength, &milliBeat, beatLength);
+
+  char beatStr[1024];
+  sprintf(beatStr, "%f", beat);
+  Serial.print("onEventFired beat1: ");
+  Serial.print(beatStr);
+  Serial.print(" milliBeat: ");
+  sprintf(beatStr, "%u", milliBeat);
+  Serial.println(beatStr);
+
+  PETAL_LOGI("onEventFired noteCount: %u", noteCount);
+  PETAL_LOGI("onEventFired noteValue: %u", noteValue);
+  PetalUtils::logBuffer("onEventFired: ", payload+UUID_LENGTH, controlLength+signatureLength+beatLength);
+
+  unsigned int responseLength = PetalUtils::encode7BitEncodedPayload(payload, totalPayloadLength);
   sendSysExMessage(payload, responseLength);
 }

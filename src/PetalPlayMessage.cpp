@@ -12,7 +12,7 @@ PetalPlayMessage::PetalPlayMessage(PetalMessage message) {
     return;
   }
   timestamp = PetalUtils::parseULong(bytes, 0);
-  PETAL_LOGI("ZZZ parsing timestamp: %04x", timestamp);
+  PETAL_LOGI("ZZZ parsing timestamp: 0x%x", timestamp);
 }
 
 unsigned long PetalPlayMessage::getTimestamp() {

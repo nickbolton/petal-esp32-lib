@@ -10,11 +10,11 @@ const byte EXPONENTIAL_SHAPE = 3;
 const double EXPONENTIAL_STEEPNESS = 15.0;
 const double PI_2 = PI/2.0;
 
-PetalSongProgram::PetalSongProgram(const byte *program, unsigned int length, PetalEventHandler *eventHandlerIn) {
+PetalSongProgram::PetalSongProgram(PetalInteroperability *iop, const byte *program, unsigned int length, PetalEventHandler *eventHandlerIn) {
+  interop = iop;
   eventHandler = eventHandlerIn;
   initialize();
   parseSongProgram(program, length);
-  PETAL_LOGI("ZZZ new PetalSongProgram(%p)", this);
 }
 
 PetalSongProgram::~PetalSongProgram() {
@@ -23,7 +23,6 @@ PetalSongProgram::~PetalSongProgram() {
   free(ramps);
   eventHandler = nullptr;
   eventHandler = nullptr;
-  PETAL_LOGI("ZZZ delete PetalSongProgram(%p)", this);
 }
 
 PetalProgramError PetalSongProgram::getErrorStatus() {
@@ -112,6 +111,7 @@ void PetalSongProgram::parseSongProgram(const byte *program, unsigned int progra
   if (processStatus != UNLOADED) {
     unload();
   }
+  PetalUtils::logBuffer("PROGRAM", program, programLength);
   if (!program || programLength < (3 * ULONG_SIZE)) { 
     PETAL_LOGI("ZZZ no song program!");
     errorStatus = INVALID_PAYLOAD_SIZE;
@@ -129,10 +129,16 @@ void PetalSongProgram::parseSongProgram(const byte *program, unsigned int progra
   rampCount = PetalUtils::parseULong(program, idx);
   idx += ULONG_SIZE;
 
+  noteCount = program[idx++];
+  noteValue = program[idx++];
+
   unsigned long expectedStopEventsSize = stopEventsCount * ULONG_SIZE;
   unsigned long expectedEventsSize = eventCount * (3 * ULONG_SIZE + 2); 
   unsigned long expectedRampEventsSize = rampCount * (4 * ULONG_SIZE + 3);
   unsigned long totalExpectedSize = expectedStopEventsSize + expectedEventsSize + expectedRampEventsSize;
+
+  PETAL_LOGI("stopEventsCount: %u, eventCount: %u, rampCount: %u", stopEventsCount, eventCount, rampCount);
+  PETAL_LOGI("programLength: %u, totalExpectedSize: %u", programLength, totalExpectedSize);
 
   if (programLength < totalExpectedSize) {
     errorStatus = INVALID_PAYLOAD_SIZE;
@@ -168,10 +174,12 @@ void PetalSongProgram::parseSongProgram(const byte *program, unsigned int progra
     idx += ULONG_SIZE;
     event.color = PetalUtils::parseULong(program, idx);
     idx += ULONG_SIZE;
-    event.volumeValue = program[idx++];
-    event.isStartEvent = program[idx++];
+    event.isStartEvent = program[idx++] != 0;
 
-    PETAL_LOGI("event packet: %04x, isStartEvent: %d", event.packet, event.isStartEvent);
+    char beatStr[1024];
+    sprintf(beatStr, "%f", event.beat);
+
+    PETAL_LOGI("event packet: 0x%x, beat: %s, delay: %u, color: %u, isStartEvent: %d", event.packet, beatStr, event.delay, event.color, event.isStartEvent);
     events[eventIndex] = event;
     eventIndex++;
   }
@@ -208,7 +216,7 @@ void PetalSongProgram::parseSongProgram(const byte *program, unsigned int progra
 
     if (ramp.duration > 0 && ramp.dutyCycle > 0) {
       ramps[rampIndex++] = ramp;
-      PETAL_LOGI("ramp source: %04x", rampSource);
+      PETAL_LOGI("ramp source: 0x%x", rampSource);
     }
   }
   rampCount = rampIndex;
@@ -220,17 +228,22 @@ void PetalSongProgram::processStartEvents() {
   if (processedStartEvents) {
     return;
   }
+  PETAL_LOGI("processing start events…");
   for (unsigned int i=0; i<eventCount; i++) {
     if (events[i].isStartEvent) {
       // sendRemoteLogging(appendInt("processing start packet: ", i) + appendInt(" of ", eventCount) + appendLong(" color: ", events[i].color) + " " + packetString(events[i].packet) + "\n");
+      PETAL_LOGI("processPacket1 event index: %d", i);
       processPacket(events[i].packet);
-      if (eventHandler) {
-        eventHandler->onEventFired(&(events[i].beat));
+      if (interop) {
+        interop->setCurrentColor(events[i].color);
       }
-      // setCurrentStatusColor(events[i].color);
+      if (eventHandler) {
+        eventHandler->onEventFired(events[i].beat, noteCount, noteValue);
+      }
     }
   }
   processedStartEvents = true;
+  PETAL_LOGI("finished processing start events…");
 }
 
 void PetalSongProgram::processStopEvents() {
@@ -239,9 +252,10 @@ void PetalSongProgram::processStopEvents() {
   }
   for (unsigned int i=0; i<stopEventsCount; i++) {
     // sendRemoteLogging(appendInt("processing stop event: ", i) + appendInt(" of ", stopEventsCount) + " : " + packetString(stopEvents[i]) + "\n");
+    PETAL_LOGI("processPacket2");
     processPacket(stopEvents[i]);
     if (eventHandler) {
-      eventHandler->onEventFired(&(events[i].beat));
+      eventHandler->onEventFired(events[i].beat, noteCount, noteValue);
     }
   }
   processedStopEvents = true;
@@ -301,8 +315,14 @@ void PetalSongProgram::processRunningEvents() {
       return;
     }
     // sendRemoteLogging(appendInt("processing packet: ", eventIndex) + appendInt(" of ", eventCount) + appendLong(" color: ", events[eventIndex].color) + " " + packetString(events[eventIndex].packet) + "\n");
+    PETAL_LOGI("eventHandler: %ld", eventHandler);
+    if (eventHandler) {
+      eventHandler->onEventFired(events[eventIndex].beat, noteCount, noteValue);
+    }
     processPacket(events[eventIndex].packet);
-    // setCurrentStatusColor(events[eventIndex].color);
+    if (interop) {
+      interop->setCurrentColor(events[eventIndex].color);
+    }
   }
 }
 
@@ -350,6 +370,7 @@ void PetalSongProgram::performRamp(int index, double progress, double linearProg
 
   unsigned long basePacket = ramp.source & 0xFFFFFF00;
   unsigned long packet = basePacket + value;
+  PETAL_LOGI("processPacket3");
   processPacket(packet);
 }
 

@@ -24,8 +24,7 @@ struct PetalProgramEvent {
   float beat;
   unsigned long delay;
   unsigned long color;
-  byte volumeValue;
-  byte isStartEvent;
+  bool isStartEvent;
 };
 
 enum PetalEventType: byte {
@@ -52,6 +51,7 @@ enum PetalProgramError: byte {
 
 class PetalSongProgram {
 private:
+  PetalInteroperability *interop = nullptr;
   PetalEventHandler * eventHandler;
   PetalProgramStatus processStatus;
   PetalProgramEvent * events;
@@ -59,6 +59,9 @@ private:
   PetalRamp * ramps;
 
   unsigned int rampCount;
+
+  byte noteCount;
+  byte noteValue;
 
   bool processedStartEvents;
   bool processedStopEvents;
@@ -86,7 +89,7 @@ private:
   void preProcessRamp(int index, double now);
 
 public:
-  PetalSongProgram(const byte *program, unsigned int length, PetalEventHandler *eventHandlerIn);
+  PetalSongProgram(PetalInteroperability *interop, const byte *program, unsigned int length, PetalEventHandler *eventHandlerIn);
   ~PetalSongProgram();
   void process();
   void handleMessage(PetalMessage message);
