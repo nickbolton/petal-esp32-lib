@@ -49,7 +49,7 @@ void PetalMidiBridge::setup() {
   PETAL_LOGI("Setting up petal bridge…");
 }
 
-void PetalMidiBridge::process() {
+void PetalMidiBridge::processLoop() {
   PetalSongProgram *program = currentSongProgram();
   if (program) {
     program->process();

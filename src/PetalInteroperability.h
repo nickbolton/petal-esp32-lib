@@ -6,5 +6,6 @@ struct PetalInteroperability {
   virtual void sendSysExMessage(const byte * message, unsigned length) = 0;
   virtual void sendProgramChange(byte channel, byte number) = 0;
   virtual void sendControlChange(byte channel, byte number, byte value) = 0;
-  virtual void setCurrentColor(unsigned long color);
+  virtual void setCurrentColor(u_int32_t color);
+  virtual void processLoop();
 };

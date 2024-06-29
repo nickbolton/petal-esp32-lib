@@ -13,23 +13,12 @@ char *  petal_loggerFormat(String s1);
 
 #define MANUFACTURER_ID 0x55
 
-#ifdef PETAL_ESP32
-#define PETAL_LOGI(format, ...) do { if (isInfoLoggingEnabled) { char *ff = petal_loggerFormat(format); log_i(format,  ##__VA_ARGS__); free(ff); }} while(0)
-#define PETAL_LOGD(format, ...) do { if (isInfoLoggingEnabled) { char *ff = petal_loggerFormat(format); log_d(format,  ##__VA_ARGS__); free(ff); }} while(0)
-#define PETAL_LOGV(format, ...) do { if (isInfoLoggingEnabled) { char *ff = petal_loggerFormat(format); log_v(format,  ##__VA_ARGS__); free(ff); }} while(0)
-#define PETAL_LOGE(format, ...) do { if (isInfoLoggingEnabled) { char *ff = petal_loggerFormat(format); log_e(format,  ##__VA_ARGS__); free(ff); }} while(0)
-#else
-// #define PETAL_LOGI(format, ...) do { char *ff = petal_loggerFormat(format); char buff[sizeof(format)+1]; sprintf(buff, format, ##__VA_ARGS__); Serial.println(buff); free(ff); } while(0)
-// #define PETAL_LOGD(format, ...) do { char *ff = petal_loggerFormat(format); char buff[sizeof(format)+1]; sprintf(buff, format, ##__VA_ARGS__); Serial.println(buff); free(ff); } while(0)
-// #define PETAL_LOGV(format, ...) do { char *ff = petal_loggerFormat(format); char buff[sizeof(format)+1]; sprintf(buff, format, ##__VA_ARGS__); Serial.println(buff); free(ff); } while(0)
-// #define PETAL_LOGE(format, ...) do { char *ff = petal_loggerFormat(format); char buff[sizeof(format)+1]; sprintf(buff, format, ##__VA_ARGS__); Serial.println(buff); free(ff); } while(0)
-#define PETAL_LOGI(format, ...)       do { if (isInfoLoggingEnabled) { char *ff = petal_loggerFormat(format); Log.noticeln(format, ##__VA_ARGS__); free(ff); }} while(0)
-#define PETAL_LOGD(format, ...)       do { if (isInfoLoggingEnabled) { char *ff = petal_loggerFormat(format); Log.traceln(format, ##__VA_ARGS__); free(ff); }} while(0)
-#define PETAL_LOGV(format, ...)       do { if (isInfoLoggingEnabled) { char *ff = petal_loggerFormat(format); Log.verboseln(format, ##__VA_ARGS__); free(ff); }} while(0)
-#define PETAL_LOGI_F(format, ...) do { char *ff = petal_loggerFormat(format); Log.noticeln(format, ##__VA_ARGS__); free(ff); } while(0)
-#define PETAL_LOGD_F(format, ...) do { char *ff = petal_loggerFormat(format); Log.traceln(format, ##__VA_ARGS__); free(ff); } while(0)
-#define PETAL_LOGE(format, ...)       do { char *ff = petal_loggerFormat(format); Log.errorln(format, ##__VA_ARGS__); free(ff); } while(0)
-#endif
+#define PETAL_LOGI(format, ...)       do { if (isInfoLoggingEnabled) { char *ff = petal_loggerFormat(format); Serial.printf(format, ##__VA_ARGS__); free(ff); }} while(0)
+#define PETAL_LOGD(format, ...)       do { if (isInfoLoggingEnabled) { char *ff = petal_loggerFormat(format); Serial.printf(format, ##__VA_ARGS__); free(ff); }} while(0)
+#define PETAL_LOGV(format, ...)       do { if (isInfoLoggingEnabled) { char *ff = petal_loggerFormat(format); Serial.printf(format, ##__VA_ARGS__); free(ff); }} while(0)
+#define PETAL_LOGI_F(format, ...) do { char *ff = petal_loggerFormat(format); Serial.printf(format, ##__VA_ARGS__); free(ff); } while(0)
+#define PETAL_LOGD_F(format, ...) do { char *ff = petal_loggerFormat(format); Serial.printf(format, ##__VA_ARGS__); free(ff); } while(0)
+#define PETAL_LOGE(format, ...)       do { char *ff = petal_loggerFormat(format); Serial.printf(format, ##__VA_ARGS__); free(ff); } while(0)
 
 #define ULONG_SIZE sizeof(uint32_t)
 #define USHORT_SIZE sizeof(uint16_t)

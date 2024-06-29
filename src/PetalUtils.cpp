@@ -1,6 +1,10 @@
 #include "PetalUtils.h"
+
+#ifdef PETAL_ESP32
+#else
 #include "mbed.h"
 #include "mbed_mem_trace.h"
+#endif
 
 #define SYS_EX_MAX_SIZE 4096
 
@@ -283,6 +287,10 @@ int PetalUtils::findIndex(const byte *a, size_t size, int value) {
   return (index == size ? -1 : index);
 }
 
+#ifdef ESP32
+void PetalUtils::dumpMemoryStats() {
+}
+#else
 void PetalUtils::dumpMemoryStats() {
   // allocate enough room for every thread's stack statistics
   int cnt = osThreadGetCount();
@@ -299,3 +307,4 @@ void PetalUtils::dumpMemoryStats() {
   mbed_stats_heap_get(&heap_stats);
   PETAL_LOGI_F("Heap size: %lu / %lu bytes", heap_stats.current_size, heap_stats.reserved_size);
 }
+#endif

@@ -68,7 +68,7 @@ public:
   PetalMidiBridge(PetalInteroperability *interop);
   ~PetalMidiBridge();
   void setup();
-  void process();
+  void processLoop();
   void receiveSysExMessage(byte * message, unsigned length);
   void receiveControlChange(byte channel, byte number, byte value);
   unsigned short getSongIndex();
