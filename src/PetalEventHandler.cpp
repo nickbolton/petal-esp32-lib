@@ -23,7 +23,7 @@ void PetalEventHandler::sendSysExMessage(const byte* payload, unsigned payloadLe
   byte message[totalLength];
   memcpy(message, manufacturerID, manufacturerLength); 
   memcpy(message + manufacturerLength, payload, payloadLength);
-  PetalUtils::logSysExMessage("SYSEX PAYLOAD: ", message, totalLength);
+  PetalUtils::logSysExMessage("SYSEX PAYLOAD: ", message, totalLength, false);
   interop->sendSysExMessage(message, totalLength);
 }
 
@@ -55,13 +55,15 @@ void PetalEventHandler::processPacket(unsigned long data) {
   }
 }
 
-void PetalEventHandler::onEventFired(float beat, byte noteCount, byte noteValue) {
+void PetalEventHandler::onEventFired(float beat, byte noteCount, byte noteValue, bool last) {
   const unsigned int beatLength = ULONG_SIZE;
   const unsigned int signatureLength = 2;
   const unsigned int controlLength = 3;
-  const unsigned int totalPayloadLength = UUID_LENGTH + controlLength + beatLength + signatureLength;
+  const unsigned int totalPayloadLength = UUID_LENGTH + controlLength + beatLength + signatureLength + 1;
   unsigned int encodedLength = PetalUtils::sevenBitEncodingPayloadOffset(totalPayloadLength);
   unsigned long milliBeat = (unsigned long)(beat * 1000.0);
+  u_int32_t measure = noteValue != 0 ? (milliBeat / (noteValue * 1000)) : 0;
+  float subMeasure = (float)(noteValue != 0 ? (milliBeat % (noteValue * 1000)) : 0) / 1000.0;
 
   byte payload[encodedLength];
   for (int i=0; i<UUID_LENGTH; i++) {
@@ -72,20 +74,17 @@ void PetalEventHandler::onEventFired(float beat, byte noteCount, byte noteValue)
   payload[UUID_LENGTH+2] = EVENT_FIRED; // action
   payload[UUID_LENGTH+3] = noteCount; // signature
   payload[UUID_LENGTH+4] = noteValue; 
+  payload[UUID_LENGTH+5] = last ? 1 : 0;
 
-  memcpy(payload+UUID_LENGTH+controlLength+signatureLength, &milliBeat, beatLength);
+  memcpy(payload+totalPayloadLength-beatLength, &milliBeat, beatLength);
 
-  char beatStr[1024];
-  sprintf(beatStr, "%f", beat);
-  Serial.print("onEventFired beat1: ");
-  Serial.print(beatStr);
-  Serial.print(" milliBeat: ");
-  sprintf(beatStr, "%u", milliBeat);
-  Serial.println(beatStr);
+  char buf[1024];
+  sprintf(buf, "onEventFired beat %.2f %u/%.2f : ", beat, measure, subMeasure);
+  PETAL_LOGI_F("onEventFired noteCount: %u", noteCount);
+  PETAL_LOGI_F("onEventFired noteValue: %u", noteValue);
 
-  PETAL_LOGI("onEventFired noteCount: %u", noteCount);
-  PETAL_LOGI("onEventFired noteValue: %u", noteValue);
-  PetalUtils::logBuffer("onEventFired: ", payload+UUID_LENGTH, controlLength+signatureLength+beatLength);
+  PetalUtils::logBuffer(buf, payload+UUID_LENGTH, controlLength+signatureLength+beatLength, true);
+  PETAL_LOGI_F("milliBeat %u, noteValue %u", milliBeat, noteValue);
 
   unsigned int responseLength = PetalUtils::encode7BitEncodedPayload(payload, totalPayloadLength);
   sendSysExMessage(payload, responseLength);

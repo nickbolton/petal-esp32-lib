@@ -5,30 +5,35 @@ const unsigned UUID_LENGTH = 16;
 
 enum PetalMessageSource {
   DEVICE_SOURCE = 0,
-  CLIENT_SOURCE = 1,
-  MIDI_SOURCE   = 2,
+  CLIENT_SOURCE,
+  MIDI_SOURCE,
 };
 
 enum PetalMessageType {
-  REQUEST      = 0,
-  RESPONSE     = 1,
-  NOTIFICATION = 2,
+  REQUEST = 0,
+  RESPONSE,
+  NOTIFICATION,
   UNKNOWN_TYPE = 0xFF,
 };
 
 enum PetalMessageAction {
-  UNLOAD            = 0,
-  PROGRAM           = 1,
-  PLAY              = 2,
-  PAUSE             = 3,
-  STOP              = 4,
-  PREV_SONG_SECTION = 5,
-  NEXT_SONG_SECTION = 6,
-  PREV_SONG         = 7,
-  NEXT_SONG         = 8,
-  ADVANCE_TO_SONG   = 9,
-  SEND_EVENTS       = 10,
-  EVENT_FIRED       = 11,
+  UNLOAD = 0,
+  PROGRAM,
+  ACTIVATE,
+  PLAY,
+  PAUSE,            
+  STOP,             
+  PREV_SONG_SECTION,
+  NEXT_SONG_SECTION,
+  PREV_SONG,        
+  NEXT_SONG,        
+  ADVANCE_TO_SONG,  
+  SEND_EVENTS,      
+  EVENT_FIRED,      
+  SONG_ENDED,
+
+  DEBUGGING         = 0x7E,
+  MULTI_PART        = 0x7F,
   UNKNOWN_ACTION    = 0xFF,
 };
 

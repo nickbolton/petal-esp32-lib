@@ -22,8 +22,8 @@ struct PetalRamp {
 struct PetalProgramEvent {
   unsigned long packet;
   float beat;
-  unsigned long delay;
-  unsigned long color;
+  u_int32_t delay;
+  u_int32_t color;
   bool isStartEvent;
 };
 
@@ -32,8 +32,7 @@ enum PetalEventType: byte {
 };
 
 enum PetalProgramStatus: unsigned long {
-  UNLOADED = 0,
-  LOADED,
+  LOADED = 0,
   RUNNING,
   PAUSED,
   STOPPED,
@@ -46,6 +45,7 @@ enum PetalProgramError: byte {
   NOT_RUNNING,
   INVALID_ACTION,
   NO_PROGRAM,
+  INVALID_MULTI_PART,
   NO_REQUEST,
 };
 
@@ -53,29 +53,30 @@ class PetalSongProgram {
 private:
   PetalInteroperability *interop = nullptr;
   PetalEventHandler * eventHandler;
-  PetalProgramStatus processStatus;
+  PetalProgramStatus programStatus;
   PetalProgramEvent * events;
   unsigned long * stopEvents;
   PetalRamp * ramps;
 
-  unsigned int rampCount;
+  u_int32_t rampCount;
 
   byte noteCount;
   byte noteValue;
 
+  u_int32_t songId;
   bool processedStartEvents;
   bool processedStopEvents;
-  unsigned int eventIndex;
-  unsigned int eventCount;
-  unsigned int stopEventsCount;
+  u_int32_t eventIndex;
+  u_int32_t eventCount;
+  u_int32_t stopEventsCount;
   double programStartTime;
   double minEventTime;
   PetalProgramError errorStatus;
+  bool active = false;
 
   void initialize();
-  void parseSongProgram(const byte *program, unsigned int length);
+  void parseSongProgram(const byte *program, u_int32_t length);
   void reset();
-  void unload();
   void resetRamps();
   void processProgramEvents();
   void processStartEvents();
@@ -89,9 +90,15 @@ private:
   void preProcessRamp(int index, double now);
 
 public:
-  PetalSongProgram(PetalInteroperability *interop, const byte *program, unsigned int length, PetalEventHandler *eventHandlerIn);
+  PetalSongProgram(PetalInteroperability *interop, const byte *program, u_int32_t length, PetalEventHandler *eventHandlerIn);
   ~PetalSongProgram();
   void process();
   void handleMessage(PetalMessage message);
   PetalProgramError getErrorStatus();
+  bool isActive();
+  void setActive(bool value);
+  void pause();
+  void play();
+  u_int32_t getSongId();
+  PetalProgramStatus getProgramStatus();
 };
