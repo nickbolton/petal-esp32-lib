@@ -1,5 +1,5 @@
 {
-  "name": "Petal-esp32-lib",
+  "name": "petal-esp32-lib",
   "version": "1.0.0",
   "description": "Petal esp32 device library.",
   "keywords": "petal, midi, controller, guitar, base, effects",
